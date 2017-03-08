@@ -12,6 +12,7 @@ import json
 import jinja2
 import hashlib
 import boto
+import botocore
 
 from os import path
 from jinja2 import meta
@@ -64,9 +65,12 @@ def gen_template(tpl_file, config):
         sys.exit(1)
 
     if len(docs) == 2:
-        return (json.dumps(docs[1], indent=2, sort_keys=True), docs[0])
+        stack = json.dumps(docs[1], indent=2, sort_keys=True)
+        stack_metadata = docs[0]
     else:
-        return (json.dumps(docs[0], indent=2, sort_keys=True), None)
+        stack = json.dumps(docs[0], indent=2, sort_keys=True)
+        stack_metadata = None
+    return (stack, stack_metadata)
 
 
 def _check_missing_vars(env, tpl_file, config):
@@ -95,19 +99,30 @@ def upload_template(conn, config, tpl, stack_name):
     bn = config.get('templates_bucket_name', '{}-stacks-{}'.format(config['env'], config['region']))
 
     try:
-        b = config['s3_conn'].get_bucket(bn)
-    except boto.exception.S3ResponseError as err:
-        if err.code == 'NoSuchBucket':
+        config['s3_conn'].head_bucket(Bucket=bn)
+    except botocore.exceptions.ClientError as e:
+        error_code = int(e.response['Error']['Code'])
+        if error_code == 404:
             print('Bucket {} does not exist.'.format(bn))
         else:
-            print(err)
-        sys.exit(1)
+            print('Error connecting to bucket: {}'.format(bn))
+            exit(1)
 
     h = _calc_md5(tpl)
-    k = boto.s3.key.Key(b)
-    k.key = '{}/{}/{}'.format(config['env'], stack_name, h)
-    k.set_contents_from_string(tpl)
-    url = k.generate_url(expires_in=30)
+    config['s3_conn'].put_object(
+        Bucket=bn,
+        Key='{}/{}/{}'.format(config['env'], stack_name, h),
+        Body=tpl,
+        )
+
+    url = config['s3_conn'].generate_presigned_url(
+        'get_object',
+        Params={
+            'Bucket': bn,
+            'Key': '{}/{}/{}'.format(config['env'], stack_name, h),
+        },
+        ExpiresIn=30)
+
     return url
 
 
@@ -228,15 +243,15 @@ def create_stack(conn, stack_name, tpl_file, config, update=False, dry=False,
     try:
         if update and create_on_update and not stack_exists(conn, sn):
             conn.create_stack(sn, template_url=tpl_url, template_body=tpl_body,
-                              tags=tags, capabilities=['CAPABILITY_IAM'],
+                              tags=tags, capabilities=['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM'],
                               disable_rollback=disable_rollback)
         elif update:
             conn.update_stack(sn, template_url=tpl_url, template_body=tpl_body,
-                              tags=tags, capabilities=['CAPABILITY_IAM'],
+                              tags=tags, capabilities=['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM'],
                               disable_rollback=disable_rollback)
         else:
             conn.create_stack(sn, template_url=tpl_url, template_body=tpl_body,
-                              tags=tags, capabilities=['CAPABILITY_IAM'],
+                              tags=tags, capabilities=['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM'],
                               disable_rollback=disable_rollback)
         if follow:
             get_events(conn, sn, follow, 10)

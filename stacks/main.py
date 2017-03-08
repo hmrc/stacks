@@ -9,7 +9,7 @@ import boto.ec2
 import boto.vpc
 import boto.route53
 import boto.cloudformation
-import boto.s3
+import boto3.s3
 
 from stacks import cli
 from stacks import aws
@@ -20,6 +20,8 @@ from stacks.config import profile_exists
 from stacks.config import validate_properties
 from stacks.config import print_config
 
+#Uncomment to get extensive AWS logging from Boto3
+#boto3.set_stream_logger('botocore', level='DEBUG')
 
 def main():
     for sig in [signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT]:
@@ -84,7 +86,10 @@ def main():
         vpc_conn = boto.vpc.connect_to_region(region, profile_name=profile)
         cf_conn = boto.cloudformation.connect_to_region(region, profile_name=profile)
         r53_conn = boto.route53.connect_to_region(region, profile_name=profile)
-        s3_conn = boto.s3.connect_to_region(region, profile_name=profile)
+
+        botosession = boto3.Session(profile_name=profile)
+        s3_conn = botosession.client('s3')
+
         config['ec2_conn'] = ec2_conn
         config['vpc_conn'] = vpc_conn
         config['cf_conn'] = cf_conn

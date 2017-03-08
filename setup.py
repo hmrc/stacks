@@ -12,6 +12,7 @@ install_requires = [
     'PyYAML>=3.11',
     'Jinja2>=2.7.3',
     'boto>=2.40.0',
+    'boto3',
     'tabulate>=0.7.5',
     'setuptools',
 ]
