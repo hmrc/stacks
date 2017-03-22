@@ -65,19 +65,16 @@ def main():
         output = cf.stack_resources(cf_conn, args.name, args.logical_id)
         if output:
             print(output)
-        cf_conn.close()
 
     if args.subcommand == 'outputs':
         output = cf.stack_outputs(cf_conn, args.name, args.output_name)
         if output:
             print(output)
-        cf_conn.close()
 
     if args.subcommand == 'list':
         output = cf.list_stacks(cf_conn, args.name, args.verbose)
         if output:
             print(output)
-        cf_conn.close()
 
     if args.subcommand == 'create' or args.subcommand == 'update':
         if args.property:
