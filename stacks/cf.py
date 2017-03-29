@@ -307,7 +307,7 @@ def delete_stack(conn, stack_name, region, profile, confirm):
 
     if response in YES:
         try:
-            conn.delete_stack(stack_name)
+            conn.delete_stack(StackName=stack_name)
         except botocore.exceptions.ClientError as err:
             if 'does not exist' in err.message:
                 print(err.message)
